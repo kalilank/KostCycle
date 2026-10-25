@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppContext } from "./store";
 import { supabase, configurationError } from "../lib/supabase";
+import { addView, readViews, saveViews } from "../utils/viewHistory";
 import {
   emptyState,
   fetchMarketplace,
@@ -19,6 +20,17 @@ export default function AppProvider({ children }) {
   const identity = useRef(undefined);
   const request = useRef(0);
   const userId = session?.user?.id || null;
+  const [histories, setHistories] = useState({});
+  const historyKey = userId || "guest";
+  const viewHistory = histories[historyKey] || readViews(userId);
+  const recordView = useCallback(
+    (item) => {
+      const rows = addView(readViews(userId), item);
+      saveViews(userId, rows);
+      setHistories((previous) => ({ ...previous, [userId || "guest"]: rows }));
+    },
+    [userId],
+  );
   const notify = useCallback((message) => setToast(message), []);
   useEffect(() => {
     if (!toast) return;
@@ -156,6 +168,11 @@ export default function AppProvider({ children }) {
               .from("saved_items")
               .insert({ user_id: userId, listing_id: action.id });
         if (result.error?.code === "23505") result.error = null;
+      } else if (action.type === "moderate") {
+        result = await supabase.rpc("moderate_listing", {
+          p_listing_id: action.id,
+          p_archive: action.archive,
+        });
       } else if (action.type === "profile") {
         const { name, university, campus, residence } = action.profile;
         result = await supabase
@@ -167,7 +184,10 @@ export default function AppProvider({ children }) {
       } else throw new Error("Unsupported action.");
       if (result.error) throw result.error;
       if (action.type !== "logout") await refresh();
-      return { listing };
+      return {
+        listing,
+        reservationId: action.type === "reserve" ? result.data : undefined,
+      };
     } catch (e) {
       void refresh();
       throw new Error(readableError(e), { cause: e });
@@ -184,6 +204,8 @@ export default function AppProvider({ children }) {
         dispatch,
         notify,
         realtimeStatus,
+        viewHistory,
+        recordView,
       }}
     >
       {children}

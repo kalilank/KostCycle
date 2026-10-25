@@ -28,6 +28,7 @@ export function filterListings(listings, filters) {
       const text =
         `${item.name} ${item.category} ${item.residence} ${item.description}`.toLowerCase();
       return (
+        !item.archived_at &&
         text.includes(q.toLowerCase()) &&
         (!category || item.category === category) &&
         (!distance || item.distance < Number(distance)) &&

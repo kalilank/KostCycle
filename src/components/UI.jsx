@@ -11,6 +11,7 @@ import {
 import { categoryIcons } from "./categoryIcons";
 import { useApp } from "../context/store";
 import { currency, distanceText } from "../utils/marketplace";
+import { productPhoto } from "../data/productPhotos";
 
 export function VerifiedBadge({ compact = false }) {
   return (
@@ -27,41 +28,38 @@ export function StatusBadge({ status }) {
         ? "Available"
         : status === "RESERVED"
           ? "Reserved"
-          : "Handoff completed"}
+          : status === "ARCHIVED"
+            ? "Archived"
+            : "Completed"}
     </span>
   );
 }
 export function ProductImage({ item, className = "" }) {
   const [failed, setFailed] = useState(false);
-  const index = item.imageIndex ?? 0;
   const Icon = categoryIcons[item.category] || Package;
+  const photo = productPhoto(item);
   return (
     <div className={`product-image ${className}`}>
       <div className="image-fallback">
         <Icon size={52} strokeWidth={1} />
         <span>{item.category}</span>
       </div>
-      {!failed &&
-        (item.image ? (
-          <img
-            src={item.image}
-            alt={item.name}
-            onError={() => setFailed(true)}
-          />
-        ) : (
-          <div className="atlas-window">
-            <img
-              className="atlas"
-              src="/products.png"
-              alt={item.name}
-              style={{
-                left: `${-(index % 4) * 100}%`,
-                top: `${-Math.floor(index / 4) * 100}%`,
-              }}
-              onError={() => setFailed(true)}
-            />
-          </div>
-        ))}
+      {failed !== photo.src && (
+        <img
+          src={photo.src}
+          alt={
+            photo.illustrative
+              ? `${item.category}: illustrative photograph`
+              : item.name
+          }
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(photo.src)}
+        />
+      )}
+      {photo.illustrative && (
+        <span className="illustrative-label">Illustrative</span>
+      )}
     </div>
   );
 }
@@ -107,10 +105,9 @@ export function ProductCard({ item }) {
       </div>
       <div className="product-meta">
         <span>{item.category}</span>
-        <span>
-          {item.price === 0 ? item.condition : <VerifiedBadge compact />}
-        </span>
+        <span>{item.condition}</span>
       </div>
+      {item.is_demo && <span className="demo-label">Demo · browse only</span>}
       <Link className="product-title" to={`/item/${item.id}`}>
         {item.name}
         <ArrowUpRight size={18} />
@@ -123,6 +120,9 @@ export function ProductCard({ item }) {
         <span>{item.residence}</span>
         <b>{distanceText(item.distance)} est.</b>
       </div>
+      {item.recommendationReason && (
+        <p className="recommendation-reason">{item.recommendationReason}</p>
+      )}
     </article>
   );
 }
@@ -166,7 +166,10 @@ export function Modal({ title, onClose, children }) {
     <dialog
       ref={dialog}
       aria-labelledby="modal-title"
-      onCancel={onClose}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
       onClick={(event) => {
         if (event.target === dialog.current) onClose();
       }}

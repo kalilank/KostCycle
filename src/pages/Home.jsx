@@ -2,7 +2,8 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   ArrowUpRight,
-  BadgeCheck,
+  Search,
+  CalendarCheck,
   Footprints,
   Repeat2,
   Plus,
@@ -11,11 +12,12 @@ import { useApp } from "../context/store";
 import { categories } from "../data/catalog";
 import { ProductGrid, ProductImage } from "../components/UI";
 import { categoryIcons } from "../components/categoryIcons";
+import Recommendations from "../components/Recommendations";
 
 export default function Home() {
   const { state } = useApp();
   const nearby = state.listings
-    .filter((i) => i.status === "AVAILABLE")
+    .filter((i) => i.status === "AVAILABLE" && !i.archived_at)
     .sort((a, b) => a.distance - b.distance);
   const heroItem = nearby[0] || {
     name: "Illustrative desk lamp",
@@ -26,7 +28,7 @@ export default function Home() {
     <div className="home container">
       {!state.currentUser && (
         <div className="entry-banner">
-          <span>Your next room essential could be a short walk away.</span>
+          <span>Buy, sell or give away nearby.</span>
           <Link to="/login">
             Sign in / Join the cycle <ArrowRight size={16} />
           </Link>
@@ -53,11 +55,7 @@ export default function Home() {
             </span>
             .
           </h1>
-          <p>
-            Find affordable kost essentials from students nearby.
-            <br className="desktop-break" /> Less spending. Less waste. More
-            living.
-          </p>
+          <p>Find affordable kost essentials from students nearby.</p>
           <div className="button-row">
             <Link className="button primary" to="/browse">
               Browse nearby <ArrowUpRight size={19} />
@@ -65,16 +63,6 @@ export default function Home() {
             <Link className="button secondary" to="/sell">
               <Plus size={17} /> List an item
             </Link>
-          </div>
-          <div className="hero-note">
-            <span className="student-avatars">
-              <i>K</i>
-              <i>N</i>
-              <i>C</i>
-            </span>
-            <span>
-              Better together. <strong>Closer to home.</strong>
-            </span>
           </div>
         </div>
         <div className="hero-visual">
@@ -93,17 +81,21 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <div className="benefits">
-        <span>
-          <BadgeCheck size={18} /> Student verification · simulated
-        </span>
-        <span>
-          <Footprints size={18} /> A walk away, not a delivery away
-        </span>
-        <span>
-          <Repeat2 size={18} /> Good for your room. Better for the planet.
-        </span>
-      </div>
+      <ol className="how-it-works" aria-label="How KostCycle works">
+        <li>
+          <Search size={21} />
+          <span>Find nearby</span>
+        </li>
+        <li>
+          <CalendarCheck size={21} />
+          <span>Reserve</span>
+        </li>
+        <li>
+          <Footprints size={21} />
+          <span>Pick up</span>
+        </li>
+      </ol>
+      <Recommendations />
       <section className="category-section">
         <div className="section-heading">
           <h2>What does your room need?</h2>
@@ -133,7 +125,6 @@ export default function Home() {
             <h2>
               Near your kost<span className="yellow-dot">.</span>
             </h2>
-            <p>A few steps away from their next home. Yours?</p>
           </div>
           <Link to="/browse">
             See all nearby <ArrowRight size={17} />
@@ -148,7 +139,6 @@ export default function Home() {
               ZERO RUPIAH. PLENTY OF POSSIBILITIES.
             </span>
             <h2>Free to a good room.</h2>
-            <p>Not everything good needs a price tag.</p>
           </div>
           <Link to="/browse?price=free">
             See all free finds <ArrowRight size={17} />

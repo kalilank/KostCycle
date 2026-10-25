@@ -52,7 +52,7 @@ test("complete migration: real PostgreSQL constraints, RLS, RPC ownership and pi
   const buyer = "22222222-2222-4222-8222-222222222222";
   const other = "33333333-3333-4333-8333-333333333333";
   try {
-    await db.exec(`create role anon nologin; create role authenticated nologin;
+    await db.exec(`create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
       create schema auth;
       create table auth.users(id uuid primary key, raw_user_meta_data jsonb default '{}');
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
@@ -63,6 +63,15 @@ test("complete migration: real PostgreSQL constraints, RLS, RPC ownership and pi
       await readFile(
         new URL(
           "../supabase/migrations/202609210001_kostcycle_multiuser.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202610120001_feedback_admin_demo.sql",
           import.meta.url,
         ),
         "utf8",

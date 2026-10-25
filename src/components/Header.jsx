@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowUpRight,
   Search,
@@ -10,6 +10,8 @@ import {
   Menu,
   X,
   UserRound,
+  House,
+  ClipboardList,
 } from "lucide-react";
 import { useApp } from "../context/store";
 
@@ -28,6 +30,11 @@ export default function Header() {
   const [query, setQuery] = useState("");
   const [menu, setMenu] = useState(false);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const sectionLink = (pattern) => ({
+    className: pattern.test(pathname) ? "active" : undefined,
+    "aria-current": pattern.test(pathname) ? "page" : undefined,
+  });
   return (
     <>
       <div className="announcement">
@@ -69,7 +76,8 @@ export default function Header() {
           </Link>
           <Link
             className="profile-link"
-            to={state.currentUser ? "/activity" : "/login"}
+            to={state.currentUser ? "/profile" : "/login"}
+            aria-label="My Profile"
           >
             <span className="avatar small">
               {state.currentUser ? (
@@ -100,9 +108,25 @@ export default function Header() {
             <span>· {state.currentUser?.campus || "BINUS Alam Sutera"}</span>
           </div>
           <nav aria-label="Main navigation" onClick={() => setMenu(false)}>
-            <NavLink to="/browse">Browse</NavLink>
-            <NavLink to="/activity">My Activity</NavLink>
+            <NavLink to="/" end>
+              Home
+            </NavLink>
+            <Link to="/browse" {...sectionLink(/^\/(browse|item)(\/|$)/)}>
+              Browse
+            </Link>
+            <Link
+              to="/activity"
+              {...sectionLink(/^\/(activity|reservation)(\/|$)/)}
+            >
+              My Activity
+            </Link>
             <NavLink to="/impact">Your Impact</NavLink>
+            <Link
+              to="/profile"
+              {...sectionLink(/^\/(profile|admin|login)(\/|$)/)}
+            >
+              Profile
+            </Link>
             <NavLink to="/sell" className="sell-link">
               <Plus size={16} /> Sell / Give away
             </NavLink>
@@ -110,6 +134,39 @@ export default function Header() {
         </div>
       </header>
     </>
+  );
+}
+export function BottomNav() {
+  const { pathname } = useLocation();
+  const area = pathname.startsWith("/item")
+    ? "/browse"
+    : pathname.startsWith("/reservation")
+      ? "/activity"
+      : /^\/(profile|login|impact|admin)/.test(pathname)
+        ? "/profile"
+        : pathname.startsWith("/sell")
+          ? "/sell"
+          : pathname;
+  return (
+    <nav className="bottom-nav" aria-label="Mobile navigation">
+      {[
+        ["/", "Home", House],
+        ["/browse", "Browse", Search],
+        ["/sell", "Sell", Plus],
+        ["/activity", "Activity", ClipboardList],
+        ["/profile", "Profile", UserRound],
+      ].map(([to, label, Icon]) => (
+        <Link
+          key={to}
+          to={to}
+          className={area === to ? "active" : ""}
+          aria-current={area === to ? "page" : undefined}
+        >
+          <Icon size={21} />
+          <span>{label}</span>
+        </Link>
+      ))}
+    </nav>
   );
 }
 export function Footer() {

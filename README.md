@@ -1,5 +1,7 @@
 # KostCycle
 
+For the current interview-feedback upgrade, pending migration, admin promotion, optional demo seed, photograph credits and pre-deployment checks, read [SETUP_FEEDBACK.md](SETUP_FEEDBACK.md). The initial database setup below is for a fresh project only: do not rerun the original migration on production.
+
 The existing React + Vite JavaScript marketplace, now connected to Supabase Auth, PostgreSQL, RLS, and Realtime. React Router, Lucide, plain CSS, and the original mustard / black / off-white interface are preserved.
 
 ## Required one-time database setup
@@ -10,7 +12,7 @@ Open your configured Supabase project → SQL Editor → New query. Paste and ru
 
 Run once as the project owner. The migration is transactional; a failed run rolls back. Do not run it again after a successful commit. It creates profiles, listings, reservations (also the transaction record), saved items, private pickup secrets, indexes, constraints, signup/backfill triggers, column grants, RLS, RPCs, and the Realtime publication. It does not seed mock marketplace data or delete existing auth accounts. If an existing unrelated table has one of these names, resolve that conflict before applying; do not drop user data.
 
-The configured project's Data API was reachable, but its listings table was missing. No database admin connection or management credentials were available here, so this migration has **not been applied remotely**. A publishable frontend key cannot apply SQL. Never put a service-role/secret key in this app.
+The existing production project contains real user/test data. Use the pending-migration instructions in SETUP_FEEDBACK.md for that project; the original migration above is only for a fresh database. No remote SQL was applied automatically. A publishable frontend key cannot apply SQL. Never put a service-role/secret key in this app.
 
 ## Environment and run
 
@@ -44,7 +46,7 @@ Open the URL printed by Vite. On Windows PowerShell, use `npm.cmd` if script exe
 5. In A, Sell / Give Away → create a Lamps listing with price or free status, description, residence, image, and Today pickup. In My Listings, edit an available listing to verify owner editing. Leave this page open.
 6. In B, find that listing through Browse/search/filter/sort, open it, and reserve Today. My Reservations shows the pickup location, date and four-digit code. Impact must still be zero for this transaction.
 7. Without refreshing A, its listing should become Reserved and show B as the buyer. A sees a Confirm handoff button, **not** B's code.
-8. A clicks Confirm handoff and tries `0000` once. It must fail without changing state. Then enter the code shown in B and confirm. Five consecutive incorrect attempts lock verification for 15 minutes.
+8. After the physical exchange, A clicks Confirm handoff and checks “I have physically handed the item to the buyer.” Code entry is disabled until this acknowledgement. Try `0000` once: it must fail without changing state. Then enter B's actual code and confirm. Five consecutive incorrect attempts lock verification for 15 minutes. Cash or direct transfer is arranged directly between the students; KostCycle does not process, verify or guarantee payments. Free items need no payment.
 9. Without refreshing B, the reservation becomes Completed. Both accounts' Completed and Impact pages show one completed handoff, one reused item, and **estimated 1.0 kg** for the lamp. The active pickup code disappears.
 10. Refresh both browsers: database state remains. Sign out/in: each account keeps its own activity and saved items. Repeat with roles reversed to confirm there are no permanent buyer/seller roles.
 11. A must not be able to reserve A's own item. A reserved item cannot be reserved again, edited, or deleted through the app. A third account cannot see another pair's reservation or complete it. The local database tests also verify these restrictions below the UI.
@@ -60,7 +62,7 @@ For separate physical devices, run `npm run dev -- --host 0.0.0.0` on a trusted 
 - Completed reservations are the only impact source, with category-weight snapshots taken at reservation. There is no separately mutable impact counter.
 - Public listing/profile fields are readable for browsing; profiles contain name, university, campus, residence and simulated verification, never email. Reservation details and saved items are account-scoped.
 - Realtime invalidates/refetches data, with refresh on reconnect/focus/online and a 30-second reconciliation fallback. Offline writes are rejected, not simulated. Initial and setup errors include Retry.
-- Old localStorage marketplace persistence, demo users, seed listings, reset controls, and Demo Seller View were removed. Any old browser demo entry is ignored, not imported or deleted. Only Supabase's standard auth session persists locally.
+- Old localStorage marketplace persistence, demo-user switching, reset controls, and Demo Seller View were removed. Any old browser demo entry is ignored. Supabase auth and bounded recommendation preferences persist locally. The new optional seed is separate, explicitly labelled, and blocked from real transactions.
 
 ## Verification and remaining limits
 
@@ -68,10 +70,10 @@ For separate physical devices, run `npm run dev -- --host 0.0.0.0` on a trusted 
 
 Lint and production build pass. Vite runs; Home, Sign In, Sign Up, and the explicit missing-schema state were checked in the browser. **Live two-account Auth/Realtime testing still requires applying the remote migration and creating the two accounts.**
 
-University verification is simulated and labelled. Distances/walking times are illustrative residence-based estimates, not GPS. Impact weights are category estimates: Fans 2.5 kg, Lamps 1.0 kg, Storage 1.2 kg, Furniture 5.0 kg, Kitchen 1.0 kg, Electronics 1.5 kg, Other Essentials 1.0 kg. Catalog photos are illustrative unless replaced with an upload. Payments remain arranged outside the app. No chat, cancellation, shipping, or payment gateway is implemented.
+University verification is simulated and labelled. Distances/walking times are illustrative residence-based estimates, not GPS. Impact weights are category estimates: Fans 2.5 kg, Lamps 1.0 kg, Storage 1.2 kg, Furniture 5.0 kg, Kitchen 1.0 kg, Electronics 1.5 kg, Other Essentials 1.0 kg. Catalog photography is illustrative unless a seller uploads a photo. Payments remain arranged outside the app. No chat, cancellation, shipping, or payment gateway is implemented.
 
 ## Product imagery
 
-`public/products.png` is a locally stored illustrative catalog contact sheet created with the built-in image generation tool, displayed as twelve product photographs. Product detail screens label demo imagery. The image-generation skill was used for this asset. Fonts use Host Grotesk from Google Fonts with system fallbacks; product imagery does not depend on an external API.
+The current marketplace uses 36 real Pexels photographs downloaded and compressed under `public/products/`, with type/category matching and small illustrative labels. Uploads take precedence and are never overwritten. Source pages, photographers, download URLs and license links are recorded in `src/data/productPhotos.js` and [public/products/SOURCES.md](public/products/SOURCES.md). Fonts use Host Grotesk with system fallbacks. No external image service is contacted while browsing. The old `public/products.png` AI contact sheet remains as an unused legacy asset; it is not displayed or used by the new fallbacks.
 
 Generation prompt: “Create one catalog photography contact sheet for a student secondhand essentials marketplace. Exact layout: 4 equal columns and 3 equal rows, twelve equally sized square panels, no gutters, no borders, no text. Each panel has a single centered complete object occupying 65% of panel with generous breathing room, photographed on a uniform warm light-gray seamless studio backdrop, soft natural shadows, realistic modest affordable used products, polished editorial retail photography. Reading left to right: Row 1: black adjustable desk lamp; white standing pedestal fan; translucent plastic storage box with beige lid; white compact rice cooker. Row 2: small light oak study table; white coiled extension cable power strip; small light oak three-tier shelf; brushed stainless electric kettle. Row 3: compact white desk fan; stack of three neutral ceramic mugs; mustard yellow cotton cushion; small black portable bluetooth speaker. Exactly 4 columns x 3 rows, every object entirely contained in its own panel, no overlap, no people, no branding, no captions. High quality large landscape image.”

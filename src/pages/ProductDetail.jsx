@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
   ArrowRight,
   Heart,
   MapPin,
@@ -19,10 +18,16 @@ import {
   StatusBadge,
   EmptyState,
 } from "../components/UI";
+import BackButton from "../components/BackButton";
+import TransactionSteps from "../components/TransactionSteps";
+import Recommendations from "../components/Recommendations";
+import { productPhoto } from "../data/productPhotos";
+import PaymentNote from "../components/PaymentNote";
 
 export default function ProductDetail() {
   const { id } = useParams();
-  const { state, dispatch, notify } = useApp();
+  const navigate = useNavigate();
+  const { state, dispatch, notify, recordView } = useApp();
   const item = state.listings.find((l) => l.id === id);
   const [modal, setModal] = useState(false);
   const [period, setPeriod] = useState("");
@@ -30,11 +35,19 @@ export default function ProductDetail() {
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const reservation = state.reservations.find(
-    (r) => r.listingId === id && r.buyerId === state.currentUser?.id,
+    (r) =>
+      r.listingId === id &&
+      (r.buyerId === state.currentUser?.id ||
+        r.sellerId === state.currentUser?.id),
   );
+  const category = item?.category;
+  useEffect(() => {
+    if (category) recordView({ id, category });
+  }, [id, category, recordView]);
   if (!item)
     return (
       <div className="container page">
+        <BackButton />
         <EmptyState
           title="This item has moved on."
           text="Explore more essentials in your neighbourhood."
@@ -53,9 +66,14 @@ export default function ProductDetail() {
     if (busy) return;
     setBusy(true);
     try {
-      await dispatch({ type: "reserve", id, period: period || item.pickup[0] });
+      const { reservationId } = await dispatch({
+        type: "reserve",
+        id,
+        period: period || item.pickup[0],
+      });
       setModal(false);
       notify("Reservation confirmed. Your pickup code is ready.");
+      if (reservationId) navigate(`/reservation/${reservationId}`);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -64,19 +82,15 @@ export default function ProductDetail() {
   }
   return (
     <div className="container page detail-page">
-      <Link className="back-link" to="/browse">
-        <ArrowLeft size={16} /> Back to nearby finds
-      </Link>
+      <BackButton />
       <div className="detail-layout">
         <div>
           <div className="detail-image">
             <ProductImage item={item} />
-            <span className="photo-caption">
-              {item.image ? "Seller photo" : "Illustrative demo photo"}
-            </span>
+            <span className="photo-caption">{productPhoto(item).label}</span>
           </div>
           <div className="detail-description">
-            <h2>A little about this find</h2>
+            <h2>Item details</h2>
             <p>{item.description}</p>
             <span className="small muted">
               Listed{" "}
@@ -91,19 +105,18 @@ export default function ProductDetail() {
         <section className="detail-info">
           <div className="detail-top">
             <span className="eyebrow muted">{item.category}</span>
-            <StatusBadge status={item.status} />
+            <StatusBadge status={item.archived_at ? "ARCHIVED" : item.status} />
           </div>
           <h1>{item.name}</h1>
+          {item.is_demo && (
+            <p className="demo-label">Demo listing · browse only</p>
+          )}
           <div
             className={`detail-price ${item.price === 0 ? "free-price" : ""}`}
           >
             {currency(item.price)}
           </div>
-          <p className="muted">
-            {item.price === 0
-              ? "A good find, yours for a new chapter."
-              : "Arrange payment directly at pickup. No in-app payment."}
-          </p>
+          <PaymentNote price={item.price} />
           <dl className="item-facts">
             <div>
               <dt>Condition</dt>
@@ -122,19 +135,32 @@ export default function ProductDetail() {
           {reservation?.status === "RESERVED" ? (
             <div className="reservation-success">
               <h3>
-                <CheckCircle2 size={20} /> Reservation confirmed
+                <CheckCircle2 size={20} />{" "}
+                {owner ? "Reserved · arrange handoff" : "Reserved for you"}
               </h3>
               <p>
                 {reservation.location} · {reservation.period} ·{" "}
                 {reservation.pickupDate}
               </p>
-              <span className="eyebrow">YOUR PICKUP CODE</span>
-              <strong className="pickup-code">
-                {reservation.code || "Syncing…"}
-              </strong>
-              <p>Show this code to the seller during handoff.</p>
-              <Link className="text-link" to="/activity?tab=reservations">
-                View reservation <ArrowRight size={16} />
+              {!owner && (
+                <>
+                  <span className="eyebrow">YOUR PRIVATE PICKUP CODE</span>
+                  <strong className="pickup-code">
+                    {reservation.code || "Syncing…"}
+                  </strong>
+                  <p>
+                    Share this with the seller only after you receive the item.
+                  </p>
+                </>
+              )}
+              {owner && (
+                <p>
+                  Agree pickup directly. Verify the buyer’s code after handing
+                  over the item.
+                </p>
+              )}
+              <Link className="text-link" to={`/reservation/${reservation.id}`}>
+                Pickup details <ArrowRight size={16} />
               </Link>
             </div>
           ) : item.status === "COMPLETED" ? (
@@ -145,6 +171,12 @@ export default function ProductDetail() {
                 <p>Handoff completed. A little less waste.</p>
               </div>
             </div>
+          ) : item.archived_at || item.is_demo ? (
+            <p className="success-panel">
+              {item.archived_at
+                ? "Archived — no new reservations."
+                : "Demo only. Choose a student listing for a real pickup."}
+            </p>
           ) : owner ? (
             <Link className="button primary full" to="/activity">
               Manage your listing <ArrowRight size={18} />
@@ -192,9 +224,8 @@ export default function ProductDetail() {
           </button>
           <div className="handoff-box">
             <h3>
-              <Footprints size={22} /> Local handoff
+              <Footprints size={22} /> Pickup details
             </h3>
-            <p>No shipping needed. Just a short walk.</p>
             <div>
               <MapPin size={18} />
               <span>
@@ -213,11 +244,12 @@ export default function ProductDetail() {
               <ShieldCheck size={17} /> Meet in a shared or public area.
             </p>
           </div>
-          <p className="small muted">
-            University verification is simulated in this MVP.
-          </p>
+          {!item.is_demo && !item.archived_at && (
+            <TransactionSteps status={item.status} compact />
+          )}
         </section>
       </div>
+      <Recommendations current={item} />
       {modal && (
         <Modal
           title={`Reserve ${item.name}?`}
@@ -232,6 +264,7 @@ export default function ProductDetail() {
               </div>
             </div>
             <Seller id={item.sellerId} />
+            <PaymentNote price={item.price} />
             <p className="pickup-location">
               <MapPin size={18} />
               {meetup(item)} · {distanceText(item.distance)}
@@ -264,8 +297,8 @@ export default function ProductDetail() {
               <ArrowRight size={17} />
             </button>
             <p className="small muted">
-              You’ll receive a 4-digit code to show the seller at pickup. It
-              confirms this reservation, not your identity.
+              Next: arrange pickup. Keep your code private until you receive the
+              item.
             </p>
           </form>
         </Modal>

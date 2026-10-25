@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/store";
 import { EmptyState, ProductImage } from "../components/UI";
+import BackButton from "../components/BackButton";
 
 export default function Impact() {
   const { state } = useApp();
@@ -18,6 +19,7 @@ export default function Impact() {
   const weight = transactions.reduce((total, t) => total + t.weight, 0);
   return (
     <div className="container page impact-page">
+      <BackButton fallback="/profile" />
       <div className="page-heading">
         <span className="eyebrow muted">EVERY NEW HOME MAKES A DIFFERENCE</span>
         <h1>

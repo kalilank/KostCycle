@@ -33,8 +33,13 @@ export const mapReservation = (row, codes = []) => ({
   code: codes.find((code) => code.listing_id === row.listing_id)?.code,
 });
 export function readableError(error) {
+  if (
+    ["42703", "PGRST204"].includes(error?.code) ||
+    error?.message?.includes("moderate_listing")
+  )
+    return "Database update required: apply 202610120001_feedback_admin_demo.sql, then Retry.";
   if (["PGRST205", "42P01", "PGRST202", "42883"].includes(error?.code))
-    return "Database setup is required. Run supabase/migrations/202609210001_kostcycle_multiuser.sql in the Supabase SQL Editor, then click Retry.";
+    return "Database setup is incomplete. Apply only pending migrations listed in SETUP_FEEDBACK.md, then Retry.";
   if (error?.code === "42501")
     return "You do not have permission for this action. Check your account and the database migration.";
   if (error?.code === "23505")
