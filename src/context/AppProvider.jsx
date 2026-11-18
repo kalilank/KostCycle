@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppContext } from "./store";
 import { supabase, configurationError } from "../lib/supabase";
 import { addView, readViews, saveViews } from "../utils/viewHistory";
+import { readInterests, saveInterests } from "../utils/interests";
 import {
   emptyState,
   fetchMarketplace,
@@ -28,6 +29,23 @@ export default function AppProvider({ children }) {
       const rows = addView(readViews(userId), item);
       saveViews(userId, rows);
       setHistories((previous) => ({ ...previous, [userId || "guest"]: rows }));
+    },
+    [userId],
+  );
+  // Onboarding interests, per user ("guest" when signed out); null = not set yet.
+  const [interestStore, setInterestStore] = useState({});
+  const interests =
+    historyKey in interestStore
+      ? interestStore[historyKey]
+      : readInterests(userId);
+  const setInterests = useCallback(
+    (prefs) => {
+      const clean = saveInterests(userId, prefs);
+      setInterestStore((previous) => ({
+        ...previous,
+        [userId || "guest"]: clean,
+      }));
+      return clean;
     },
     [userId],
   );
@@ -206,6 +224,8 @@ export default function AppProvider({ children }) {
         realtimeStatus,
         viewHistory,
         recordView,
+        interests,
+        setInterests,
       }}
     >
       {children}

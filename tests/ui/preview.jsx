@@ -14,6 +14,7 @@ import Profile from "../../src/pages/Profile";
 import Admin from "../../src/pages/Admin";
 import Reservation from "../../src/pages/Reservation";
 import Impact from "../../src/pages/Impact";
+import Onboarding from "../../src/pages/Onboarding";
 import { demoListings } from "../../scripts/demo-data.mjs";
 import { productPhotos } from "../../src/data/productPhotos";
 import { meetup } from "../../src/utils/marketplace";
@@ -80,6 +81,7 @@ export default function Fixture() {
     },
   ]);
   const [notice, setNotice] = useState("");
+  const [interests, setInterestsState] = useState(null);
   const user = people.find((p) => p.id === viewer);
   const recordView = useCallback(() => {}, []);
   const state = {
@@ -159,6 +161,11 @@ export default function Fixture() {
         notify: setNotice,
         viewHistory: [],
         recordView,
+        interests,
+        setInterests: (prefs) => {
+          setInterestsState(prefs);
+          return prefs;
+        },
         realtimeStatus: "UI fixture (not live)",
       }}
     >
@@ -192,6 +199,7 @@ export default function Fixture() {
               ["/reservation/reservation", "Pickup"],
               ["/reservation/free-reservation", "Free pickup"],
               ["/impact", "Impact"],
+              ["/onboarding", "Onboarding"],
               ["/photos", "Photo QA"],
             ].map(([to, label]) => (
               <Link key={to} to={to}>
@@ -213,6 +221,7 @@ export default function Fixture() {
             <Route path="/admin/listing/:id" element={<Admin />} />
             <Route path="/reservation/:id" element={<Reservation />} />
             <Route path="/impact" element={<Impact />} />
+            <Route path="/onboarding" element={<Onboarding />} />
             <Route
               path="/photos"
               element={

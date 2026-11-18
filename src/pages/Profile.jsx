@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, Leaf, ShieldCheck, LogOut } from "lucide-react";
+import { Heart, Leaf, ShieldCheck, LogOut, Sparkles } from "lucide-react";
 import { useApp } from "../context/store";
 import { residences } from "../data/catalog";
 import { VerifiedBadge } from "../components/UI";
@@ -40,6 +40,10 @@ export default function Profile() {
         <Link className="button secondary" to="/impact">
           <Leaf size={18} />
           Your Impact
+        </Link>
+        <Link className="button secondary" to="/onboarding">
+          <Sparkles size={18} />
+          Edit interests
         </Link>
         {user.role === "admin" && (
           <Link className="button secondary" to="/admin">

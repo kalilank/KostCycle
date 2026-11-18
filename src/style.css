@@ -3649,3 +3649,212 @@ html {
     flex: 1 1 100%;
   }
 }
+
+/* Buyer onboarding: interest picker */
+.personalise-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px solid #111;
+  background: var(--white);
+  font-size: 0.82rem;
+}
+.personalise-banner span {
+  flex: 1;
+}
+.personalise-banner:hover {
+  background: var(--yellow);
+}
+.onboarding-page {
+  max-width: 760px;
+}
+.onboarding-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.onboarding-dots {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  max-width: 220px;
+}
+.onboarding-dots span {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--gray-300);
+  transition: background 0.2s;
+}
+.onboarding-dots span.done {
+  background: #111;
+}
+.onboarding-title {
+  margin-top: 10px;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  line-height: 1.1;
+}
+.onboarding-text {
+  margin: 10px 0 26px;
+  font-size: 0.95rem;
+}
+.interest-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.interest-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 118px;
+  padding: 16px;
+  text-align: left;
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.1s;
+}
+.interest-tile:hover {
+  border-color: #111;
+}
+.interest-tile:active {
+  transform: scale(0.98);
+}
+.interest-tile.selected {
+  background: var(--yellow);
+  border-color: #111;
+}
+.interest-tile:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+.interest-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--off-white);
+}
+.interest-tile.selected .interest-icon {
+  background: var(--white);
+}
+.interest-label {
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+.interest-hint {
+  font-size: 0.74rem;
+  color: var(--gray-600);
+}
+.interest-tile.selected .interest-hint {
+  color: #111;
+}
+.interest-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #111;
+  color: var(--yellow);
+}
+.onboarding-specific .browse-search {
+  background: var(--white);
+}
+.onboarding-specific .browse-search input {
+  flex: 1;
+  font-size: 1rem;
+  background: transparent;
+}
+.onboarding-specific > .small {
+  margin-top: 6px;
+  text-align: right;
+}
+.onboarding-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.onboarding-chips .filter-chip {
+  margin: 0;
+  padding: 9px 14px;
+  font-size: 0.82rem;
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.onboarding-chips .filter-chip.selected,
+.onboarding-chips .filter-chip:hover {
+  background: var(--yellow);
+  border-color: #111;
+}
+.budget-list {
+  display: grid;
+  gap: 10px;
+}
+.budget-tile {
+  min-height: 0;
+  padding: 18px 16px;
+  justify-content: center;
+}
+.onboarding-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 32px;
+}
+.onboarding-note {
+  margin-top: 10px;
+  text-align: right;
+}
+@media (max-width: 800px) {
+  .interest-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 580px) {
+  .onboarding-page {
+    padding-bottom: 120px;
+  }
+  .interest-grid {
+    gap: 8px;
+  }
+  .interest-tile {
+    min-height: 104px;
+    padding: 12px;
+  }
+  .interest-icon {
+    width: 36px;
+    height: 36px;
+  }
+  .onboarding-actions {
+    position: sticky;
+    bottom: 72px;
+    padding: 12px 0;
+    background: var(--off-white);
+  }
+  .onboarding-actions .button {
+    flex: 1;
+  }
+}

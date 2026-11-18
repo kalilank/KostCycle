@@ -12,14 +12,16 @@ import {
 } from "../utils/studentEmail";
 
 export default function Login() {
-  const { state } = useApp();
+  const { state, interests } = useApp();
   const [signup, setSignup] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   // Address awaiting confirmation, so the student can request a new link.
   const [pendingEmail, setPendingEmail] = useState("");
-  if (state.currentUser) return <Navigate to="/activity" replace />;
+  // First sign-in without saved (or skipped) interests goes to onboarding once.
+  if (state.currentUser)
+    return <Navigate to={interests ? "/activity" : "/onboarding"} replace />;
   async function resend() {
     if (busy || !pendingEmail) return;
     setBusy(true);
