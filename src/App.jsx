@@ -14,6 +14,7 @@ import Impact from "./pages/Impact";
 import Profile from "./pages/Profile";
 import Reservation from "./pages/Reservation";
 import Admin from "./pages/Admin";
+import BankSampah from "./pages/BankSampah";
 
 function Protected({ children }) {
   const { state } = useApp();
@@ -70,6 +71,7 @@ function Shell() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/browse" element={<Browse />} />
+            <Route path="/bank-sampah" element={<BankSampah />} />
             <Route
               path="/profile"
               element={

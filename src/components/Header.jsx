@@ -121,6 +121,7 @@ export default function Header() {
               My Activity
             </Link>
             <NavLink to="/impact">Your Impact</NavLink>
+            <NavLink to="/bank-sampah">Bank Sampah</NavLink>
             <Link
               to="/profile"
               {...sectionLink(/^\/(profile|admin|login)(\/|$)/)}
