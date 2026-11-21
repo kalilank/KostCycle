@@ -291,3 +291,17 @@ export function feedLink(prefs) {
   params.set("available", "1");
   return `/browse?${params}`;
 }
+
+/**
+ * Which interests to use. Signed-in users keep them on their private
+ * profile_preferences row; guests keep them on this device. When someone signs
+ * in with device-only answers and nothing saved yet, those answers are
+ * uploaded once (`migrate`).
+ */
+export function resolveInterests({ signedIn, server, local }) {
+  const fromServer = normaliseInterests(server);
+  const fromDevice = normaliseInterests(local);
+  if (!signedIn) return { value: fromDevice, migrate: false };
+  if (fromServer) return { value: fromServer, migrate: false };
+  return { value: fromDevice, migrate: !!fromDevice };
+}
