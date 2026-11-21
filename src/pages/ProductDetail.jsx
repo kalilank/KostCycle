@@ -10,6 +10,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { useApp } from "../context/store";
+import { currentReservation } from "../utils/reservations";
 import { currency, distanceText, meetup } from "../utils/marketplace";
 import {
   ProductImage,
@@ -34,11 +35,10 @@ export default function ProductDetail() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
-  const reservation = state.reservations.find(
-    (r) =>
-      r.listingId === id &&
-      (r.buyerId === state.currentUser?.id ||
-        r.sellerId === state.currentUser?.id),
+  const reservation = currentReservation(
+    state.reservations,
+    id,
+    state.currentUser?.id || "nobody",
   );
   const category = item?.category;
   useEffect(() => {

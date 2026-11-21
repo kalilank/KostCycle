@@ -1,6 +1,6 @@
 // DEV-ONLY UI fixtures. Not imported by src/main.jsx or included in the Vite build.
 // No Supabase calls. These verify layout and components, NOT hosted authentication.
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter, Route, Routes, Link } from "react-router-dom";
 import { AppContext } from "../../src/context/store";
@@ -61,6 +61,7 @@ const reservation = {
   period: "Today",
   pickupDate: "2026-10-12",
   createdAt: "2026-10-12T12:00:00Z",
+  expiresAt: new Date(Date.now() + 30 * 3600000).toISOString(),
   weight: 1,
 };
 export default function Fixture() {
@@ -82,7 +83,42 @@ export default function Fixture() {
   ]);
   const [notice, setNotice] = useState("");
   const [interests, setInterestsState] = useState(null);
+  // In-memory chat so the reservation page can be demoed offline.
+  const [messages, setMessages] = useState(() => [
+    {
+      id: "m1",
+      reservation_id: "reservation",
+      sender_id: "seller",
+      body: "Hi! I'm at the Newton Kost lobby after 5 pm. Does that work?",
+      created_at: new Date(Date.now() - 3600000).toISOString(),
+    },
+  ]);
+  const [listeners] = useState(() => new Map());
   const user = people.find((p) => p.id === viewer);
+  const chatApi = useMemo(
+    () => ({
+      list: async (rid) => messages.filter((m) => m.reservation_id === rid),
+      send: async (rid, body) => {
+        const row = {
+          id: "m" + Date.now(),
+          reservation_id: rid,
+          sender_id: viewer,
+          body,
+          created_at: new Date().toISOString(),
+        };
+        setMessages((all) => [...all, row]);
+        listeners.get(rid)?.forEach((fn) => fn(row));
+        return row;
+      },
+      subscribe: (rid, fn) => {
+        if (!listeners.has(rid)) listeners.set(rid, new Set());
+        listeners.get(rid).add(fn);
+        return () => listeners.get(rid).delete(fn);
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [viewer],
+  );
   const recordView = useCallback(() => {}, []);
   const state = {
     currentUser: user,
@@ -124,6 +160,32 @@ export default function Fixture() {
       ]);
       return { reservationId: id };
     }
+    if (action.type === "cancel") {
+      const target = reservations.find(
+        (row) => row.listingId === action.id && row.status === "RESERVED",
+      );
+      if (!target || ![target.buyerId, target.sellerId].includes(viewer))
+        throw Error("Only the buyer or seller can cancel this reservation.");
+      setReservations((rows) =>
+        rows.map((r) =>
+          r.id === target.id
+            ? {
+                ...r,
+                status: "CANCELLED",
+                cancelled_at: new Date().toISOString(),
+                cancelled_by: viewer,
+                code: undefined,
+              }
+            : r,
+        ),
+      );
+      setListings((rows) =>
+        rows.map((i) =>
+          i.id === action.id ? { ...i, status: "AVAILABLE" } : i,
+        ),
+      );
+      return;
+    }
     if (action.type === "complete") {
       const target = reservations.find((row) => row.listingId === action.id);
       if (viewer !== "seller" || !target)
@@ -161,6 +223,14 @@ export default function Fixture() {
         notify: setNotice,
         viewHistory: [],
         recordView,
+        chatApi,
+        messageMeta: messages,
+        unread: new Set(
+          messages
+            .filter((m) => m.sender_id !== viewer)
+            .map((m) => m.reservation_id),
+        ),
+        markChatRead: () => {},
         interests,
         setInterests: (prefs) => {
           setInterestsState(prefs);

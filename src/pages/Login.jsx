@@ -68,9 +68,11 @@ export default function Login() {
           })
         : await supabase.auth.signInWithPassword({ email, password });
       if (result.error) {
-        if (/email_not_confirmed|email not confirmed/i.test(
-          `${result.error.code} ${result.error.message}`,
-        ))
+        if (
+          /email_not_confirmed|email not confirmed/i.test(
+            `${result.error.code} ${result.error.message}`,
+          )
+        )
           setPendingEmail(email);
         throw result.error;
       }

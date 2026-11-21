@@ -26,7 +26,7 @@ export function Wordmark() {
   );
 }
 export default function Header() {
-  const { state } = useApp();
+  const { state, unread } = useApp();
   const [query, setQuery] = useState("");
   const [menu, setMenu] = useState(false);
   const navigate = useNavigate();
@@ -119,6 +119,9 @@ export default function Header() {
               {...sectionLink(/^\/(activity|reservation)(\/|$)/)}
             >
               My Activity
+              {unread?.size > 0 && (
+                <span className="nav-dot" aria-label="New messages" />
+              )}
             </Link>
             <NavLink to="/impact">Your Impact</NavLink>
             <NavLink to="/bank-sampah">Bank Sampah</NavLink>
@@ -139,6 +142,7 @@ export default function Header() {
 }
 export function BottomNav() {
   const { pathname } = useLocation();
+  const { unread } = useApp();
   const area = pathname.startsWith("/item")
     ? "/browse"
     : pathname.startsWith("/reservation")
@@ -165,6 +169,9 @@ export function BottomNav() {
         >
           <Icon size={21} />
           <span>{label}</span>
+          {to === "/activity" && unread?.size > 0 && (
+            <span className="nav-dot" aria-label="New messages" />
+          )}
         </Link>
       ))}
     </nav>

@@ -30,7 +30,11 @@ export function StatusBadge({ status }) {
           ? "Reserved"
           : status === "ARCHIVED"
             ? "Archived"
-            : "Completed"}
+            : status === "CANCELLED"
+              ? "Cancelled"
+              : status === "EXPIRED"
+                ? "Expired"
+                : "Completed"}
     </span>
   );
 }
