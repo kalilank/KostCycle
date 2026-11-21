@@ -5,9 +5,14 @@ import { categories, residences, periods } from "../data/catalog";
 import { useApp } from "../context/store";
 import { ProductImage } from "../components/UI";
 import BackButton from "../components/BackButton";
+import {
+  blobToDataUrl,
+  compressImage,
+  validateSourceImage,
+} from "../utils/images";
 
 export default function Sell() {
-  const { state, dispatch, notify } = useApp();
+  const { state, dispatch, notify, uploadImage } = useApp();
   const navigate = useNavigate();
   const { id } = useParams();
   const existing = state.listings.find((item) => item.id === id);
@@ -30,31 +35,33 @@ export default function Sell() {
   function update(key, value) {
     setForm((previous) => ({ ...previous, [key]: value }));
   }
-  function upload(event) {
+  // Resize to ~1200 px WebP in the browser, then upload to Supabase Storage.
+  // Without Storage (offline preview) the small WebP is kept inline instead.
+  async function upload(event) {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
-    if (
-      !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
-      file.size > 1200000
-    ) {
-      setError(
-        "Choose a JPG, PNG, or WebP photo smaller than 1.2 MB, or leave the photo empty.",
-      );
-      event.target.value = "";
+    const problem = validateSourceImage(file);
+    if (problem) {
+      setError(problem);
       return;
     }
     setBusy(true);
     setError("");
-    const reader = new FileReader();
-    reader.onload = () => {
-      update("image", reader.result);
+    try {
+      const { blob, type, ext } = await compressImage(file);
+      if (uploadImage) {
+        const url = await uploadImage(blob, ext, type);
+        setForm((previous) => ({ ...previous, image_url: url, image: url }));
+      } else {
+        const data = await blobToDataUrl(blob);
+        setForm((previous) => ({ ...previous, image_url: null, image: data }));
+      }
+    } catch (e) {
+      setError(e.message || "That photo could not be used. Try another.");
+    } finally {
       setBusy(false);
-    };
-    reader.onerror = () => {
-      setError("That photo could not be read. Try another image.");
-      setBusy(false);
-    };
-    reader.readAsDataURL(file);
+    }
   }
   async function submit(event) {
     event.preventDefault();
@@ -287,7 +294,9 @@ export default function Sell() {
             />
           </label>
           <p className="small muted">
-            JPG, PNG or WebP · up to 1.2 MB
+            {busy
+              ? "Optimising your photo\u2026"
+              : "JPG, PNG or WebP \u00b7 resized to 1200 px"}
             <br />
             No photo? We’ll use a labelled illustrative photo.
           </p>
@@ -295,7 +304,13 @@ export default function Sell() {
             <button
               type="button"
               className="text-link"
-              onClick={() => update("image", null)}
+              onClick={() =>
+                setForm((previous) => ({
+                  ...previous,
+                  image: null,
+                  image_url: null,
+                }))
+              }
             >
               Remove photo
             </button>

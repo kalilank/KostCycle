@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Leaf,
   ArrowRight,
+  Recycle,
 } from "lucide-react";
 import { useApp } from "../context/store";
 import { EmptyState, ProductImage } from "../components/UI";
@@ -74,6 +75,15 @@ export default function Impact() {
         estimates, not measured environmental outcomes. Only completed handoffs
         count.
       </p>
+      <section className="impact-bank-link">
+        <p>
+          <strong>Item can't be reused?</strong> Take it to a Bank Sampah so it
+          still gets recycled.
+        </p>
+        <Link className="button primary" to="/bank-sampah">
+          <Recycle size={17} /> Find the nearest Bank Sampah
+        </Link>
+      </section>
       <section className="impact-history">
         <div className="section-heading">
           <h2>Your cycle so far</h2>

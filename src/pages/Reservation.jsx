@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Clock, XCircle } from "lucide-react";
 import { useApp } from "../context/store";
-import { EmptyState, ProductImage, StatusBadge } from "../components/UI";
+import { EmptyState, Modal, ProductImage, StatusBadge } from "../components/UI";
+import ReservationChat from "../components/ReservationChat";
+import { canCancel, endedLabel, timeLeft } from "../utils/reservations";
 import BackButton from "../components/BackButton";
 import TransactionSteps from "../components/TransactionSteps";
 import HandoffForm from "../components/HandoffForm";
@@ -15,9 +18,23 @@ export default function Reservation() {
   return <PickupDetail key={`${id}:${state.currentUser?.id}`} id={id} />;
 }
 
+// Re-render every 30 s so the countdown stays current.
+function useNow(ms = 30000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(timer);
+  }, [ms]);
+  return now;
+}
+
 function PickupDetail({ id }) {
-  const { state } = useApp();
+  const { state, dispatch, notify } = useApp();
   const [handedOver, setHandedOver] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const now = useNow();
   const user = state.currentUser;
   const reservation = state.reservations.find(
     (row) =>
@@ -26,6 +43,23 @@ function PickupDetail({ id }) {
   const item = state.listings.find((row) => row.id === reservation?.listingId);
   const buyer = reservation?.buyerId === user.id;
   const completed = reservation?.status === "COMPLETED";
+  const ended =
+    reservation?.status === "CANCELLED" || reservation?.status === "EXPIRED";
+  const hold = timeLeft(reservation?.expiresAt, now);
+  async function cancel() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await dispatch({ type: "cancel", id: reservation.listingId });
+      setConfirmCancel(false);
+      notify("Reservation cancelled. The item is available again.");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const counterpart = state.profiles.find(
     (profile) =>
       profile.id === (buyer ? reservation?.sellerId : reservation?.buyerId),
@@ -47,14 +81,33 @@ function PickupDetail({ id }) {
               <span className="eyebrow muted">
                 {buyer ? "BUYING" : "SELLING"}
               </span>
-              <h1>{completed ? "Pickup completed" : "Your pickup"}</h1>
+              <h1>
+                {completed
+                  ? "Pickup completed"
+                  : reservation.status === "CANCELLED"
+                    ? "Reservation cancelled"
+                    : reservation.status === "EXPIRED"
+                      ? "Reservation expired"
+                      : "Your pickup"}
+              </h1>
             </div>
             <StatusBadge status={reservation.status} />
           </div>
-          <TransactionSteps
-            status={reservation.status}
-            phase={buyer ? "arrange" : handedOver ? "verify" : "meet"}
-          />
+          {reservation.status === "RESERVED" && hold.text && (
+            <p className={`hold-timer ${hold.urgent ? "urgent" : ""}`}>
+              <Clock size={16} />
+              <span>
+                <strong>{hold.text}</strong> to confirm the handoff. After that
+                the item is released for other students.
+              </span>
+            </p>
+          )}
+          {!ended && (
+            <TransactionSteps
+              status={reservation.status}
+              phase={buyer ? "arrange" : handedOver ? "verify" : "meet"}
+            />
+          )}
           <div className="reservation-layout">
             <section className="pickup-summary">
               <Link className="pickup-item" to={"/item/" + item.id}>
@@ -80,7 +133,7 @@ function PickupDetail({ id }) {
                   </dd>
                 </div>
               </dl>
-              {!completed && (
+              {reservation.status === "RESERVED" && (
                 <p className="small muted">
                   Agree an exact time directly. Meet in a shared public area.
                 </p>
@@ -88,7 +141,20 @@ function PickupDetail({ id }) {
               <PaymentNote price={item.price} />
             </section>
             <section className="form-section pickup-action">
-              {completed ? (
+              {ended ? (
+                <>
+                  <h2>
+                    <XCircle size={20} />{" "}
+                    {reservation.status === "EXPIRED"
+                      ? "Hold expired"
+                      : "Cancelled"}
+                  </h2>
+                  <p>{endedLabel(reservation, user.id)}</p>
+                  <Link className="button primary" to="/browse">
+                    Browse other finds
+                  </Link>
+                </>
+              ) : completed ? (
                 <>
                   <h2>Exchange complete</h2>
                   <p>
@@ -133,8 +199,56 @@ function PickupDetail({ id }) {
                   />
                 </>
               )}
+              {canCancel(reservation, user.id) && (
+                <button
+                  className="text-link danger cancel-reservation"
+                  onClick={() => {
+                    setError("");
+                    setConfirmCancel(true);
+                  }}
+                >
+                  Cancel reservation
+                </button>
+              )}
             </section>
           </div>
+          <ReservationChat
+            reservation={reservation}
+            counterpartName={counterpart?.name}
+          />
+          {confirmCancel && (
+            <Modal
+              title="Cancel this reservation?"
+              onClose={() => !busy && setConfirmCancel(false)}
+            >
+              <p>
+                {buyer
+                  ? "The item goes back on the marketplace and your pickup code stops working."
+                  : "The buyer\u2019s hold is released, their pickup code stops working, and your item goes back on the marketplace."}
+              </p>
+              {error && (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              )}
+              <div className="button-row">
+                <button
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => setConfirmCancel(false)}
+                >
+                  Keep reservation
+                </button>
+                <button
+                  className="button destructive"
+                  disabled={busy}
+                  onClick={cancel}
+                >
+                  {busy ? "Cancelling\u2026" : "Cancel reservation"}
+                </button>
+              </div>
+            </Modal>
+          )}
         </>
       )}
     </div>

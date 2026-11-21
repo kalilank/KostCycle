@@ -7,6 +7,7 @@ import {
   Footprints,
   Repeat2,
   Plus,
+  Sparkles,
 } from "lucide-react";
 import { useApp } from "../context/store";
 import { categories } from "../data/catalog";
@@ -15,7 +16,7 @@ import { categoryIcons } from "../components/categoryIcons";
 import Recommendations from "../components/Recommendations";
 
 export default function Home() {
-  const { state } = useApp();
+  const { state, interests } = useApp();
   const nearby = state.listings
     .filter((i) => i.status === "AVAILABLE" && !i.archived_at)
     .sort((a, b) => a.distance - b.distance);
@@ -33,6 +34,16 @@ export default function Home() {
             Sign in / Join the cycle <ArrowRight size={16} />
           </Link>
         </div>
+      )}
+      {!interests && (
+        <Link className="personalise-banner" to="/onboarding">
+          <Sparkles size={18} />
+          <span>
+            <strong>Personalise your feed.</strong> Tell us what you need in
+            three quick taps.
+          </span>
+          <ArrowRight size={16} />
+        </Link>
       )}
       <section className="hero">
         <div className="hero-copy">

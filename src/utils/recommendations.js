@@ -1,3 +1,4 @@
+import { interestScore } from "./interests.js";
 // Deterministic content scoring, not a trained model. No location/GPS inference.
 export function categoryAffinity(history, reservations, listings) {
   const viewed = history.slice(0, 20).map((entry) => entry.category);
@@ -9,7 +10,7 @@ export function categoryAffinity(history, reservations, listings) {
 }
 export function recommendItems(
   listings,
-  { current, user, affinity = [], limit = 4 } = {},
+  { current, user, affinity = [], interests = null, limit = 4 } = {},
 ) {
   const residence = current?.residence || user?.residence;
   return listings
@@ -31,6 +32,9 @@ export function recommendItems(
         score += 3;
         reasons.push("Your recent interests");
       }
+      const picked = interestScore(item, interests);
+      score += picked.score;
+      reasons.push(...picked.reasons);
       if (residence && residence !== "Other" && item.residence === residence) {
         score += 2;
         reasons.push("Same residence");

@@ -6,8 +6,9 @@ import { currency } from "../utils/marketplace";
 import { EmptyState, Modal, ProductImage, StatusBadge } from "../components/UI";
 import HandoffForm from "../components/HandoffForm";
 import PaymentNote from "../components/PaymentNote";
+import { currentReservation } from "../utils/reservations";
 export default function Activity() {
-  const { state, dispatch, notify, realtimeStatus } = useApp();
+  const { state, dispatch, notify, realtimeStatus, unread } = useApp();
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") || "listings";
   const [modal, setModal] = useState(null);
@@ -90,11 +91,12 @@ export default function Activity() {
         )}
         {items.length ? (
           items.map((item) => {
-            const reservation = state.reservations.find(
-              (r) =>
-                r.listingId === item.id &&
-                (r.buyerId === user.id || r.sellerId === user.id),
+            const reservation = currentReservation(
+              state.reservations,
+              item.id,
+              user.id,
             );
+            const hasUnread = !!reservation && !!unread?.has(reservation.id);
             const owner = item.sellerId === user.id;
             return (
               <article className="activity-card" key={item.id}>
@@ -106,9 +108,14 @@ export default function Activity() {
                     <Link to={`/item/${item.id}`}>
                       <h3>{item.name}</h3>
                     </Link>
-                    <StatusBadge
-                      status={item.archived_at ? "ARCHIVED" : item.status}
-                    />
+                    <span className="activity-badges">
+                      {hasUnread && (
+                        <span className="unread-pill">New message</span>
+                      )}
+                      <StatusBadge
+                        status={item.archived_at ? "ARCHIVED" : item.status}
+                      />
+                    </span>
                   </div>
                   <span className="activity-direction">
                     {owner ? "Selling" : "Buying"}
