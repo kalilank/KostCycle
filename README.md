@@ -1,5 +1,7 @@
 # KostCycle
 
+**Starting fresh?** Follow [docs/NEW_SUPABASE_PROJECT.md](docs/NEW_SUPABASE_PROJECT.md): one SQL file sets up a new Supabase project, plus an optional demo catalog, without the service-role key.
+
 For the current interview-feedback upgrade, pending migration, admin promotion, optional demo seed, photograph credits and pre-deployment checks, read [SETUP_FEEDBACK.md](SETUP_FEEDBACK.md). The initial database setup below is for a fresh project only: do not rerun the original migration on production.
 
 The existing React + Vite JavaScript marketplace, now connected to Supabase Auth, PostgreSQL, RLS, and Realtime. React Router, Lucide, plain CSS, and the original mustard / black / off-white interface are preserved.
