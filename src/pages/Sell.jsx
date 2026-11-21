@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, ImagePlus, Check, Camera, MapPin } from "lucide-react";
+import { ArrowRight, ImagePlus, Camera, MapPin } from "lucide-react";
 import { categories, residences, periods } from "../data/catalog";
 import { useApp } from "../context/store";
 import { ProductImage } from "../components/UI";
+import BackButton from "../components/BackButton";
+import {
+  blobToDataUrl,
+  compressImage,
+  validateSourceImage,
+} from "../utils/images";
 
 export default function Sell() {
-  const { state, dispatch, notify } = useApp();
+  const { state, dispatch, notify, uploadImage } = useApp();
   const navigate = useNavigate();
   const { id } = useParams();
   const existing = state.listings.find((item) => item.id === id);
@@ -29,31 +35,33 @@ export default function Sell() {
   function update(key, value) {
     setForm((previous) => ({ ...previous, [key]: value }));
   }
-  function upload(event) {
+  // Resize to ~1200 px WebP in the browser, then upload to Supabase Storage.
+  // Without Storage (offline preview) the small WebP is kept inline instead.
+  async function upload(event) {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
-    if (
-      !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
-      file.size > 1200000
-    ) {
-      setError(
-        "Choose a JPG, PNG, or WebP photo smaller than 1.2 MB, or use a demo photo.",
-      );
-      event.target.value = "";
+    const problem = validateSourceImage(file);
+    if (problem) {
+      setError(problem);
       return;
     }
     setBusy(true);
     setError("");
-    const reader = new FileReader();
-    reader.onload = () => {
-      update("image", reader.result);
+    try {
+      const { blob, type, ext } = await compressImage(file);
+      if (uploadImage) {
+        const url = await uploadImage(blob, ext, type);
+        setForm((previous) => ({ ...previous, image_url: url, image: url }));
+      } else {
+        const data = await blobToDataUrl(blob);
+        setForm((previous) => ({ ...previous, image_url: null, image: data }));
+      }
+    } catch (e) {
+      setError(e.message || "That photo could not be used. Try another.");
+    } finally {
       setBusy(false);
-    };
-    reader.onerror = () => {
-      setError("That photo could not be read. Try another image.");
-      setBusy(false);
-    };
-    reader.readAsDataURL(file);
+    }
   }
   async function submit(event) {
     event.preventDefault();
@@ -89,7 +97,8 @@ export default function Sell() {
     id &&
     (!existing ||
       existing.sellerId !== state.currentUser.id ||
-      existing.status !== "AVAILABLE")
+      existing.status !== "AVAILABLE" ||
+      existing.archived_at)
   )
     return (
       <div className="container page">
@@ -99,10 +108,10 @@ export default function Sell() {
     );
   return (
     <div className="container page sell-page">
+      <BackButton fallback="/activity" />
       <div className="page-heading">
         <span className="eyebrow muted">LESS CLUTTER. MORE POSSIBILITIES.</span>
-        <h1>{id ? "Edit your listing." : "Give it another home."}</h1>
-        <p>That thing you no longer need? Someone nearby does.</p>
+        <h1>{id ? "Edit listing" : "Sell / Give Away"}</h1>
       </div>
       <form className="sell-layout" onSubmit={submit}>
         <div className="form-main">
@@ -151,10 +160,15 @@ export default function Sell() {
                 required
                 rows={4}
                 maxLength={1500}
-                placeholder="Used for one semester, still works well. Available for pickup this weekend."
+                placeholder="e.g. 60 cm wide, small scratch on the side."
+                aria-describedby="description-help"
                 value={form.description}
                 onChange={(e) => update("description", e.target.value)}
               />
+              <span id="description-help" className="small muted">
+                Mention size, condition, defects, or anything the next owner
+                should know.
+              </span>
             </label>
           </section>
           <section className="form-section">
@@ -266,7 +280,7 @@ export default function Sell() {
         </div>
         <aside className="photo-section">
           <h2>
-            <Camera size={21} /> A picture helps
+            <Camera size={21} /> Photo (optional)
           </h2>
           <ProductImage
             item={{ ...form, name: form.name || "Listing photo preview" }}
@@ -280,33 +294,27 @@ export default function Sell() {
             />
           </label>
           <p className="small muted">
-            JPG, PNG or WebP · up to 1.2 MB
+            {busy
+              ? "Optimising your photo\u2026"
+              : "JPG, PNG or WebP \u00b7 resized to 1200 px"}
             <br />
-            Or pick an illustrative demo photo below.
+            No photo? We’ll use a labelled illustrative photo.
           </p>
-          <div className="photo-picker">
-            {Array.from({ length: 12 }, (_, i) => (
-              <button
-                type="button"
-                key={i}
-                aria-label={`Choose demo photo ${i + 1}`}
-                aria-pressed={!form.image && form.imageIndex === i}
-                onClick={() => setForm({ ...form, image: null, imageIndex: i })}
-              >
-                <ProductImage
-                  item={{ name: `Demo photo ${i + 1}`, imageIndex: i }}
-                />
-                {!form.image && form.imageIndex === i && <Check size={16} />}
-              </button>
-            ))}
-          </div>
-          <div className="photo-tip">
-            <strong>A good listing is an honest one.</strong>
-            <p>
-              Describe any wear, include what’s in the photo, and pick a time
-              you can meet.
-            </p>
-          </div>
+          {form.image && (
+            <button
+              type="button"
+              className="text-link"
+              onClick={() =>
+                setForm((previous) => ({
+                  ...previous,
+                  image: null,
+                  image_url: null,
+                }))
+              }
+            >
+              Remove photo
+            </button>
+          )}
         </aside>
       </form>
     </div>

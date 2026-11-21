@@ -8,13 +8,20 @@ export const emptyState = () => ({
   reservations: [],
   transactions: [],
   saved: [],
+  messageMeta: [],
+  preferences: null,
 });
+// The 30 s reconcile never downloads photo bytes: listings carry a Storage URL
+// (image_url), and legacy base64 photos are fetched once and cached below.
+export const LISTING_COLUMNS =
+  "id,seller_id,name,category,condition,price,is_free,university,campus,residence,distance,pickup,description,image_index,image_url,status,estimated_weight,created_at,updated_at,is_demo,seed_key,archived_at,archived_by";
+const legacyImages = new Map(); // `${id}:${updated_at}` → data URL
 export const mapProfile = (row) => ({ ...row });
-export const mapListing = (row) => ({
+export const mapListing = (row, legacyImage) => ({
   ...row,
   sellerId: row.seller_id,
   imageIndex: row.image_index,
-  image: row.image_data,
+  image: row.image_url || row.image_data || legacyImage?.(row) || null,
   price: Number(row.price),
   estimatedWeight: Number(row.estimated_weight),
   createdAt: row.created_at,
@@ -30,11 +37,18 @@ export const mapReservation = (row, codes = []) => ({
   createdAt: row.created_at,
   completedAt: row.completed_at,
   weight: Number(row.estimated_weight),
+  expiresAt: row.expires_at,
+  cancelledAt: row.cancelled_at,
   code: codes.find((code) => code.listing_id === row.listing_id)?.code,
 });
 export function readableError(error) {
+  if (
+    ["42703", "PGRST204"].includes(error?.code) ||
+    error?.message?.includes("moderate_listing")
+  )
+    return "Database update required: run the pending files in supabase/migrations (see docs/NEW_SUPABASE_PROJECT.md), then Retry.";
   if (["PGRST205", "42P01", "PGRST202", "42883"].includes(error?.code))
-    return "Database setup is required. Run supabase/migrations/202609210001_kostcycle_multiuser.sql in the Supabase SQL Editor, then click Retry.";
+    return "Database setup is incomplete. Run the files in supabase/migrations in order (see docs/NEW_SUPABASE_PROJECT.md), then Retry.";
   if (error?.code === "42501")
     return "You do not have permission for this action. Check your account and the database migration.";
   if (error?.code === "23505")
@@ -48,13 +62,11 @@ export function check(result) {
   if (result.error) throw result.error;
   return result.data;
 }
-async function allRows(table) {
+async function allRows(table, columns = "*", where = (q) => q) {
   const rows = [];
   for (let offset = 0; ; offset += 250) {
     const data = check(
-      await supabase
-        .from(table)
-        .select("*")
+      await where(supabase.from(table).select(columns))
         .order(table === "saved_items" ? "listing_id" : "id")
         .range(offset, offset + 249),
     );
@@ -62,13 +74,61 @@ async function allRows(table) {
     if (data.length < 250) return rows;
   }
 }
+// Old listings stored photos as base64 in image_data. Fetch those bytes only
+// for rows we have not cached yet (keyed by updated_at so edits refresh).
+async function legacyImageLookup() {
+  const withData = await allRows("listings", "id,updated_at", (q) =>
+    q.not("image_data", "is", null),
+  );
+  const missing = withData.filter(
+    (row) => !legacyImages.has(`${row.id}:${row.updated_at}`),
+  );
+  for (let i = 0; i < missing.length; i += 20) {
+    const rows = check(
+      await supabase
+        .from("listings")
+        .select("id,updated_at,image_data")
+        .in(
+          "id",
+          missing.slice(i, i + 20).map((row) => row.id),
+        ),
+    );
+    for (const row of rows)
+      legacyImages.set(`${row.id}:${row.updated_at}`, row.image_data);
+  }
+  return (row) => legacyImages.get(`${row.id}:${row.updated_at}`) || null;
+}
 export async function fetchMarketplace(userId) {
-  const [listings, profiles, reservations, saved, codes] = await Promise.all([
-    allRows("listings"),
+  const [
+    listings,
+    legacyImage,
+    profiles,
+    reservations,
+    saved,
+    codes,
+    messageMeta,
+    preferences,
+  ] = await Promise.all([
+    allRows("listings", LISTING_COLUMNS),
+    legacyImageLookup(),
     allRows("profiles"),
     userId ? allRows("reservations") : [],
     userId ? allRows("saved_items") : [],
     userId ? supabase.rpc("my_pickup_codes").then(check) : [],
+    // Metadata only (no message text) for unread dots; RLS limits it to my threads.
+    userId
+      ? allRows(
+          "reservation_messages",
+          "id,reservation_id,sender_id,created_at",
+        )
+      : [],
+    userId
+      ? supabase
+          .from("profile_preferences")
+          .select("interests")
+          .maybeSingle()
+          .then(check)
+      : null,
   ]);
   const mappedReservations = reservations.map((row) =>
     mapReservation(row, codes),
@@ -81,12 +141,14 @@ export async function fetchMarketplace(userId) {
   return {
     currentUser,
     profiles: profiles.map(mapProfile),
-    listings: listings.map(mapListing),
+    listings: listings.map((row) => mapListing(row, legacyImage)),
     reservations: mappedReservations,
     transactions: mappedReservations.filter(
       (row) => row.status === "COMPLETED",
     ),
     saved: saved.map((row) => row.listing_id),
+    messageMeta,
+    preferences: preferences?.interests ?? null,
   };
 }
 export function listingPayload(listing) {
@@ -100,6 +162,13 @@ export function listingPayload(listing) {
     pickup: listing.pickup,
     description: listing.description.trim(),
     image_index: listing.imageIndex ?? 0,
-    image_data: listing.image || null,
+    // New photos live in Storage; base64 is kept only for older listings.
+    image_url: listing.image_url || null,
+    image_data:
+      !listing.image_url &&
+      typeof listing.image === "string" &&
+      listing.image.startsWith("data:")
+        ? listing.image
+        : null,
   };
 }

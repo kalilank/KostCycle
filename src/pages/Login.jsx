@@ -4,24 +4,59 @@ import { ArrowRight, Recycle } from "lucide-react";
 import { useApp } from "../context/store";
 import { supabase, configurationError } from "../lib/supabase";
 import { residences } from "../data/catalog";
+import {
+  STUDENT_EMAIL_DOMAIN,
+  authErrorMessage,
+  normaliseEmail,
+  studentEmailError,
+} from "../utils/studentEmail";
 
 export default function Login() {
-  const { state } = useApp();
+  const { state, interests } = useApp();
   const [signup, setSignup] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  if (state.currentUser) return <Navigate to="/activity" replace />;
+  // Address awaiting confirmation, so the student can request a new link.
+  const [pendingEmail, setPendingEmail] = useState("");
+  // First sign-in without saved (or skipped) interests goes to onboarding once.
+  if (state.currentUser)
+    return <Navigate to={interests ? "/activity" : "/onboarding"} replace />;
+  async function resend() {
+    if (busy || !pendingEmail) return;
+    setBusy(true);
+    setError("");
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: pendingEmail,
+        options: { emailRedirectTo: `${window.location.origin}/login` },
+      });
+      if (resendError) throw resendError;
+      setMessage(`A new confirmation link was sent to ${pendingEmail}.`);
+    } catch (e) {
+      setError(authErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function submit(event) {
     event.preventDefault();
     if (busy) return;
     setError("");
     setMessage("");
-    setBusy(true);
+    setPendingEmail("");
     const fields = Object.fromEntries(new FormData(event.currentTarget));
+    const { password, ...profile } = fields;
+    const email = normaliseEmail(fields.email);
+    delete profile.email;
+    if (signup && studentEmailError(email)) {
+      setError(studentEmailError(email));
+      return;
+    }
+    setBusy(true);
     try {
       if (!supabase) throw new Error(configurationError);
-      const { email, password, ...profile } = fields;
       const result = signup
         ? await supabase.auth.signUp({
             email,
@@ -32,13 +67,23 @@ export default function Login() {
             },
           })
         : await supabase.auth.signInWithPassword({ email, password });
-      if (result.error) throw result.error;
-      if (signup && !result.data.session)
+      if (result.error) {
+        if (
+          /email_not_confirmed|email not confirmed/i.test(
+            `${result.error.code} ${result.error.message}`,
+          )
+        )
+          setPendingEmail(email);
+        throw result.error;
+      }
+      if (signup && !result.data.session) {
+        setPendingEmail(email);
         setMessage(
-          "Check your email to confirm your account, then sign in. If you already have an account, use Sign In.",
+          `We sent a confirmation link to ${email}. Open it from your BINUS inbox, then sign in. If you already have an account, use Sign In.`,
         );
+      }
     } catch (e) {
-      setError(e.message);
+      setError(authErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -121,8 +166,14 @@ export default function Login() {
             </>
           )}
           <label className="field">
-            Email
-            <input name="email" type="email" required autoComplete="email" />
+            {signup ? "BINUS student email" : "Email"}
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder={signup ? `name@${STUDENT_EMAIL_DOMAIN}` : undefined}
+            />
           </label>
           <label className="field">
             Password
@@ -144,14 +195,25 @@ export default function Login() {
               {message}
             </p>
           )}
+          {pendingEmail && (
+            <button
+              type="button"
+              className="button secondary full"
+              disabled={busy}
+              onClick={resend}
+            >
+              Resend confirmation email
+            </button>
+          )}
           <button className="button primary full" disabled={busy || !supabase}>
             {busy ? "Please wait…" : signup ? "Create account" : "Sign in"}
             <ArrowRight size={18} />
           </button>
         </form>
         <p className="small muted">
-          Student and university verification is simulated for this MVP. No
-          student identity has been independently verified.
+          New accounts need a @{STUDENT_EMAIL_DOMAIN} address confirmed by
+          email. This proves inbox ownership only; student identity is not
+          otherwise verified.
         </p>
       </section>
     </div>
